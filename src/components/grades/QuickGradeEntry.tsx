@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useGrades } from '@/hooks/useGrades'
 import { supabase } from '@/lib/supabase'
-import { Grade, Assignment, Course } from '@/types'
-import { Plus, Save, X, Users, BookOpen, ClipboardList } from 'lucide-react'
+import { Assignment, Course } from '@/types'
+import { Save, X, Users, BookOpen, ClipboardList } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 interface QuickGradeEntryProps {
@@ -13,12 +13,19 @@ interface QuickGradeEntryProps {
   onGradeAdded: () => void
 }
 
+interface StudentProfile {
+  id: string
+  full_name: string
+  student_id: string
+  email?: string
+}
+
 export default function QuickGradeEntry({ onClose, onGradeAdded }: QuickGradeEntryProps) {
   const { profile } = useAuth()
   const { addGrade } = useGrades()
   const [courses, setCourses] = useState<Course[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [students, setStudents] = useState<any[]>([])
+  const [students, setStudents] = useState<StudentProfile[]>([])
   const [selectedCourse, setSelectedCourse] = useState('')
   const [selectedAssignment, setSelectedAssignment] = useState('')
   const [grades, setGrades] = useState<{ [studentId: string]: { marks: number; comments: string } }>({})
@@ -80,14 +87,15 @@ export default function QuickGradeEntry({ onClose, onGradeAdded }: QuickGradeEnt
         .eq('course_id', selectedCourse)
         .eq('status', 'active')
 
-      const studentsData = data?.map(e => e.student).filter(Boolean) || []
-      setStudents(studentsData)
+      const studentsData = data?.map(e => e.student).filter(Boolean).flat() || []
+      setStudents(studentsData as StudentProfile[])
       
       // Initialize grades object
       const initialGrades: { [studentId: string]: { marks: number; comments: string } } = {}
-      studentsData.forEach((student: any) => {
-        if (student?.id) {
-          initialGrades[student.id] = { marks: 0, comments: '' }
+      studentsData.forEach((student: unknown) => {
+        const typedStudent = student as StudentProfile
+        if (typedStudent?.id) {
+          initialGrades[typedStudent.id] = { marks: 0, comments: '' }
         }
       })
       setGrades(initialGrades)

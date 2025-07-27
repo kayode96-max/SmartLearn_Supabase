@@ -5,12 +5,21 @@ import { useAuth } from '@/hooks/useAuth'
 import Layout from '@/components/layout/Layout'
 import { supabase } from '@/lib/supabase'
 import { Course, Enrollment, EnrollmentRequest, Assignment } from '@/types'
-import { BookOpen, Users, Calendar, Plus, Edit, Eye, UserPlus, Clock, CheckCircle, XCircle, FileText, X } from 'lucide-react'
+import { BookOpen, Users, Calendar, Plus, Edit, UserPlus, Clock, CheckCircle, XCircle, FileText, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 interface CourseWithStats extends Course {
   enrollment_count?: number
   assignments_count?: number
+}
+
+interface StudentProfile {
+  id: string
+  full_name: string
+  student_id: string
+  email: string
+  department?: string
+  year_of_study?: number
 }
 
 export default function CoursesPage() {
@@ -38,8 +47,8 @@ export default function CoursesPage() {
     academic_year: '',
     department: ''
   })
-  const [availableStudents, setAvailableStudents] = useState<any[]>([])
-  const [enrolledStudents, setEnrolledStudents] = useState<any[]>([])
+  const [availableStudents, setAvailableStudents] = useState<StudentProfile[]>([])
+  const [enrolledStudents, setEnrolledStudents] = useState<StudentProfile[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [newAssignment, setNewAssignment] = useState({
     title: '',
@@ -208,7 +217,7 @@ export default function CoursesPage() {
         return
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('courses')
         .insert({
           course_code: newCourse.course_code.trim(),
@@ -245,9 +254,10 @@ export default function CoursesPage() {
         department: ''
       })
       fetchData()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating course:', error)
-      toast.error(error?.message || 'Failed to create course')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create course'
+      toast.error(errorMessage)
     }
   }
 
@@ -311,9 +321,10 @@ export default function CoursesPage() {
       setShowEditModal(false)
       setSelectedCourse(null)
       fetchData()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating course:', error)
-      toast.error(error?.message || 'Failed to update course')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update course'
+      toast.error(errorMessage)
     }
   }
 
@@ -324,7 +335,7 @@ export default function CoursesPage() {
       console.log('Managing students for course:', course)
       
       // Fetch currently enrolled students
-      const { data: enrolled, error: enrolledError } = await supabase
+      const { data: enrolled } = await supabase
         .from('enrollments')
         .select(`
           *,
@@ -546,7 +557,7 @@ export default function CoursesPage() {
     }
   }
 
-  const fetchEnrollmentRequests = async () => {
+  const fetchEnrollmentRequests = useCallback(async () => {
     if (!profile || !isLecturer) return
 
     try {
@@ -565,9 +576,9 @@ export default function CoursesPage() {
     } catch (error) {
       console.error('Error fetching enrollment requests:', error)
     }
-  }
+  }, [profile, isLecturer, courses])
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     if (!profile) return
 
     try {
@@ -600,7 +611,7 @@ export default function CoursesPage() {
     } catch (error) {
       console.error('Error fetching assignments:', error)
     }
-  }
+  }, [profile, isLecturer, isStudent, courses, enrollments])
 
   const handleCreateAssignment = async () => {
     if (!profile || !isLecturer || !newAssignment.course_id) {
@@ -646,10 +657,11 @@ export default function CoursesPage() {
         course_id: ''
       })
       fetchAssignments()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating assignment:', error)
       console.error('Error details:', JSON.stringify(error, null, 2))
-      toast.error(`Failed to create assignment: ${error?.message || 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      toast.error(`Failed to create assignment: ${errorMessage}`)
     }
   }
 
@@ -768,7 +780,7 @@ export default function CoursesPage() {
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-gray-500">Lecturer:</span>
                       <span className="font-medium text-gray-700">
-                        {/* @ts-ignore */}
+                        {/* @ts-expect-error - Course lecturer relationship is optional */}
                         {course.lecturer?.full_name || 'TBA'}
                       </span>
                     </div>
@@ -1328,7 +1340,7 @@ export default function CoursesPage() {
                         <div className="flex justify-between">
                           <span>Lecturer:</span>
                           <span className="font-medium">
-                            {/* @ts-ignore */}
+                            {/* @ts-expect-error - Course lecturer relationship is optional */}
                             {course.lecturer?.full_name || 'TBA'}
                           </span>
                         </div>
@@ -1424,7 +1436,7 @@ export default function CoursesPage() {
                       {request.message && (
                         <div className="mb-3">
                           <p className="text-sm text-gray-700 italic">
-                            "{request.message}"
+                            &ldquo;{request.message}&rdquo;
                           </p>
                         </div>
                       )}
