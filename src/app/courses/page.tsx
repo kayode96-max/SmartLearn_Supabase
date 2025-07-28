@@ -5,8 +5,10 @@ import { useAuth } from '@/hooks/useAuth'
 import Layout from '@/components/layout/Layout'
 import { supabase } from '@/lib/supabase'
 import { Course, Enrollment, EnrollmentRequest, Assignment } from '@/types'
-import { BookOpen, Users, Calendar, Plus, Edit, UserPlus, Clock, CheckCircle, XCircle, FileText, X } from 'lucide-react'
+import { BookOpen, Users, Calendar, Plus, Edit, UserPlus, Clock, CheckCircle, XCircle, FileText, X, GraduationCap } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import StudentGrading from '@/components/StudentGrading'
+import QuickGradeEntry from '@/components/grades/QuickGradeEntry'
 
 interface CourseWithStats extends Course {
   enrollment_count?: number
@@ -33,6 +35,8 @@ export default function CoursesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showStudentsModal, setShowStudentsModal] = useState(false)
+  const [showStudentGrading, setShowStudentGrading] = useState(false)
+  const [showQuickEntry, setShowQuickEntry] = useState(false)
   const [showAvailableCoursesModal, setShowAvailableCoursesModal] = useState(false)
   const [showRequestsModal, setShowRequestsModal] = useState(false)
   const [showAssignmentsModal, setShowAssignmentsModal] = useState(false)
@@ -50,12 +54,21 @@ export default function CoursesPage() {
   const [availableStudents, setAvailableStudents] = useState<StudentProfile[]>([])
   const [enrolledStudents, setEnrolledStudents] = useState<StudentProfile[]>([])
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
-  const [newAssignment, setNewAssignment] = useState({
+  type AssignmentType = 'assignment' | 'test' | 'attendance' | 'practical' | 'examination' | 'classwork';
+
+  const [newAssignment, setNewAssignment] = useState<{
+    title: string;
+    description: string;
+    due_date: string;
+    max_points: number;
+    assignment_type: AssignmentType;
+    course_id: string;
+  }>({
     title: '',
     description: '',
     due_date: '',
     max_points: 100,
-    assignment_type: 'assignment' as 'assignment' | 'test' | 'attendance' | 'practical' | 'examination',
+    assignment_type: 'assignment',
     course_id: ''
   })
 
@@ -703,6 +716,14 @@ export default function CoursesPage() {
                 </button>
                 
                 <button 
+                  onClick={() => setShowQuickEntry(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  <span>Quick Grade Entry</span>
+                </button>
+                
+                <button 
                   onClick={() => setShowRequestsModal(true)}
                   className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 flex items-center space-x-2"
                 >
@@ -780,7 +801,6 @@ export default function CoursesPage() {
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-gray-500">Lecturer:</span>
                       <span className="font-medium text-gray-700">
-                        {/* @ts-expect-error - Course lecturer relationship is optional */}
                         {course.lecturer?.full_name || 'TBA'}
                       </span>
                     </div>
@@ -834,6 +854,26 @@ export default function CoursesPage() {
                           title="Manage Students"
                         >
                           <UserPlus className="h-4 w-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedCourse(course)
+                            setShowStudentGrading(true)
+                          }}
+                          className="text-orange-600 hover:text-orange-800"
+                          title="Grade Students"
+                        >
+                          <GraduationCap className="h-4 w-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedCourse(course)
+                            setShowQuickEntry(true)
+                          }}
+                          className="text-purple-600 hover:text-purple-800"
+                          title="Quick Grade Entry"
+                        >
+                          <Plus className="h-4 w-4" />
                         </button>
                         <button 
                           onClick={() => {
@@ -1340,7 +1380,6 @@ export default function CoursesPage() {
                         <div className="flex justify-between">
                           <span>Lecturer:</span>
                           <span className="font-medium">
-                            {/* @ts-expect-error - Course lecturer relationship is optional */}
                             {course.lecturer?.full_name || 'TBA'}
                           </span>
                         </div>
@@ -1604,15 +1643,26 @@ export default function CoursesPage() {
                   </label>
                   <select
                     value={newAssignment.assignment_type}
-                    onChange={(e) => setNewAssignment(prev => ({ 
-                      ...prev, 
-                      assignment_type: e.target.value as 'assignment' | 'test' | 'attendance' | 'practical' | 'examination'
-                    }))}
+                    onChange={(e) => {
+                      const type = e.target.value as 'assignment' | 'test' | 'attendance' | 'practical' | 'examination';
+                      let points = 10;
+                      if (type === 'assignment') points = 10;
+                      else if (type === 'attendance') points = 5;
+                      else if (type === 'classwork' || type === 'practical') points = 5;
+                      else if (type === 'test') points = 20;
+                      else if (type === 'examination') points = 60;
+                      setNewAssignment(prev => ({
+                        ...prev,
+                        assignment_type: type,
+                        max_points: points
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="assignment">Assignment</option>
                     <option value="test">Test</option>
                     <option value="attendance">Attendance</option>
+                    <option value="classwork">Classwork</option>
                     <option value="practical">Practical</option>
                     <option value="examination">Examination</option>
                   </select>
@@ -1662,6 +1712,36 @@ export default function CoursesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Quick Grade Entry Modal */}
+      {showQuickEntry && selectedCourse && (
+        <QuickGradeEntry
+          onClose={() => {
+            setShowQuickEntry(false)
+            setSelectedCourse(null)
+          }}
+          onGradeAdded={() => {
+            // Refresh data if needed
+            fetchData()
+            setShowQuickEntry(false)
+          }}
+        />
+      )}
+
+      {/* Student Grading Modal */}
+      {showStudentGrading && selectedCourse && (
+        <StudentGrading
+          course={selectedCourse}
+          onClose={() => {
+            setShowStudentGrading(false)
+            setSelectedCourse(null)
+          }}
+          onGradeAdded={() => {
+            // Refresh data if needed
+            fetchData()
+          }}
+        />
       )}
     </Layout>
   )

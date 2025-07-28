@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useGrades } from '@/hooks/useGrades'
 import { useNotifications } from '@/hooks/useNotifications'
 import Layout from '@/components/layout/Layout'
+import DatabaseCheck from '@/components/DatabaseCheck'
 import { BookOpen, GraduationCap, Bell, TrendingUp, Clock, Users, Award } from 'lucide-react'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -395,6 +396,13 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Database Status Check - For Lecturers */}
+        {isLecturer && (
+          <div className="mt-8">
+            <DatabaseCheck />
+          </div>
+        )}
       </div>
     </Layout>
   )
